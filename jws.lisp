@@ -51,6 +51,10 @@
                                (digest-with-pkcs1-padding digest-spec message
                                                           :start start :end end :key-length key-length)))))
 
+(defun ecdsa-sign-message (digest-spec private-key message &key (start 0) (end (length message)))
+  (let ((digest (ironclad:digest-sequence digest-spec message :start start :end end)))
+    (ironclad:sign-message private-key digest :start 0 :end (length digest))))
+
 (defun hmac-verify-signature (digest-spec verification-key message signature
                               &key (start 0) (end (length message)))
   (equalp (hmac-sign-message digest-spec verification-key message
@@ -76,6 +80,11 @@
     (error (e)
       (warn "~A" e)
       nil)))
+
+(defun ecdsa-verify-signature (digest-spec verification-key message signature
+                              &key (start 0) (end (length message)))
+  (equalp (ecdsa-sign-message digest-spec verification-key message :start start :end end)
+	  signature))
 
 (defun encode-headers (algorithm additional-headers)
   (base64url-encode
@@ -108,6 +117,12 @@
        (rsa-sign-message :sha384 key message :start start :end end :pss t))
       (:ps512
        (rsa-sign-message :sha512 key message :start start :end end :pss t))
+      (:es256
+       (ecdsa-sign-message :secp256r1 key message :start start :end end))
+      (:es384
+       (ecdsa-sign-message :secp384r1 key message :start start :end end))
+      (:es521
+       (ecdsa-sign-message :secp521r1 key message :start start :end end))
       (:none ""))))
 
 (defun sign (algorithm key payload &key headers)
@@ -138,6 +153,12 @@
      (rsa-verify-signature :sha384 key message signature :start start :end end :pss t))
     (:ps512
      (rsa-verify-signature :sha512 key message signature :start start :end end :pss t))
+    (:es256
+     (ecdsa-verify-signature :secp256r1 key message signature :start start :end end))
+    (:es384
+     (ecdsa-verify-signature :secp384r1 key message signature :start start :end end))
+    (:es521
+     (ecdsa-verify-signature :secp521r1 key message signature :start start :end end))
     (:none (zerop (length signature)))))
 
 (defun check-alg (headers algorithm)
